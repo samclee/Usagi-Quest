@@ -29,6 +29,12 @@ UsagiNamespace.Game.prototype.create = function()
     e2: new UsagiNamespace.Game.Enemy(this.game, this, 2, 'e2')
   };
 
+  this.trees = {
+    t1: new UsagiNamespace.Game.Tree(this.game, this, 't1'),
+    t2: new UsagiNamespace.Game.Tree(this.game, this, 't2'),
+    t3: new UsagiNamespace.Game.Tree(this.game, this, 't3')
+  }
+
   // generate room
   this.generateRoom(new Phaser.Point(3, 3));
   // create UI
@@ -60,7 +66,6 @@ UsagiNamespace.Game.prototype.update = function()
 
 UsagiNamespace.Game.prototype.render = function()
 {
-  this.game.debug.text(this.player.pos.x + ', ' + this.player.pos.y, 550, 100);
   for(var i = 1; i < 6; i++)
   {
     for(var j = 1; j < 6; j++)
@@ -93,16 +98,22 @@ UsagiNamespace.Game.prototype.generateRoom = function(playerCoords)
   this.stairs.y = (gridCoords.y - 1)*100;
 
   // place enemies, set hp, set new directions
-  gridCoords = this.findOpen();
-  this.enemies.e1.setPos(gridCoords.x, gridCoords.y);
-  this.room[gridCoords.y][gridCoords.x] = 'e1';
-  this.enemies.e1.reset();
-  gridCoords = this.findOpen();
-  this.enemies.e2.setPos(gridCoords.x, gridCoords.y);
-  this.room[gridCoords.y][gridCoords.x] = 'e2';
-  this.enemies.e2.reset();
+  for(var e in this.enemies)
+  {
+    gridCoords = this.findOpen();
+    this.enemies[e].setPos(gridCoords.x, gridCoords.y);
+    this.room[gridCoords.y][gridCoords.x] = e;
+    this.enemies[e].reset();
+  }
 
-  // place trees
+  // place trees, make visible
+  for(var t in this.trees)
+  {
+    gridCoords = this.findOpen();
+    this.trees[t].setPos(gridCoords.x, gridCoords.y);
+    this.room[gridCoords.y][gridCoords.x] = t;
+    this.trees[t].visible = true;
+  }
 
 } // Game.generateRoom
 
@@ -160,10 +171,14 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
     this.move(destPos);
     this.gamestate.generateRoom(this.pos);
   } // walk down stairs
-  else if(destChar === 'e1' || destChar === 'e2')
+  else if(destChar[0] === 'e')
   {
     this.gamestate.enemies[destChar].rcvDmg(this.game.rnd.integerInRange(2, 5));
   } // attack enemy
+  else if(destChar[0] === 't')
+  {
+    this.gamestate.trees[destChar].die();
+  } // chop tree
 
   for(var e in this.gamestate.enemies)
   {
@@ -198,9 +213,9 @@ UsagiNamespace.Game.Enemy = function(game, gamestate, frame, id)
   this.setDir();
 
   // hp bar
-  this.hp_bg = this.addChild(game.make.sprite(10, -20,'hp_bar'));
+  this.hp_bg = this.addChild(game.make.sprite(10, -10,'hp_bar'));
   this.hp_bg.frame = 0;
-  this.cur_hp = this.addChild(game.make.sprite(10, -20,'hp_bar'));
+  this.cur_hp = this.addChild(game.make.sprite(10, -10,'hp_bar'));
   this.cur_hp.frame = 1;
 
   this.game.add.existing(this);
@@ -281,6 +296,36 @@ UsagiNamespace.Game.Enemy.prototype.reset = function()
   this.cur_hp.scale.x = 1;
   this.visible = true;
 }
+
+
+
+// ----- Tree object -----
+UsagiNamespace.Game.Tree = function(game, gamestate, id)
+{
+  Phaser.Sprite.call(this, game, 0, 0, 'tree');
+  this.gamestate = gamestate;
+  this.id = id;
+  this.pos = new Phaser.Point(0, 0);
+
+  this.game.add.existing(this);
+} // Tree constructor
+
+UsagiNamespace.Game.Tree.prototype = Object.create(Phaser.Sprite.prototype);
+UsagiNamespace.Game.Tree.prototype.constructor = UsagiNamespace.Game.Tree;
+
+UsagiNamespace.Game.Tree.prototype.setPos = function(nx, ny)
+{
+  this.pos.x = nx;
+  this.pos.y = ny;
+  this.x = (this.pos.x - 1) * 100;
+  this.y = (this.pos.y - 1) * 100;
+} // Tree.setPos()
+
+UsagiNamespace.Game.Tree.prototype.die = function()
+{
+  this.gamestate.room[this.pos.y][this.pos.x] = 'o';
+  this.visible = false;
+} // Tree.die()
 
 function print2D(room)
 {
