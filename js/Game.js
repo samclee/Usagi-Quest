@@ -35,16 +35,18 @@ UsagiNamespace.Game.prototype.create = function()
     t3: new UsagiNamespace.Game.Tree(this.game, this, 't3')
   }
 
+  this.item = new UsagiNamespace.Game.Item(this.game, this, 'i');
+
   // generate room
   this.generateRoom(new Phaser.Point(3, 3));
   // create UI
   this.game.add.sprite(500, 0, 'bar');
   this.UI = {};
-  this.UI.floor = this.game.add.text(530, 30, 'Floor: XX', {fontSize: '32px'});
-  this.UI.hp = this.game.add.text(530, 100, 'HP: XX', {fontSize: '32px'});
+  this.UI.floor = this.game.add.text(520, 30, 'Floor: XX', {fontSize: '32px'});
+  this.UI.hp = this.game.add.text(520, 100, 'HP: XX', {fontSize: '32px'});
 
   // test
-
+  this.spaceKey = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACE);
 } // Game.create()
 
 UsagiNamespace.Game.prototype.update = function()
@@ -62,6 +64,12 @@ UsagiNamespace.Game.prototype.update = function()
   { this.player.act(this.directions.up); }
   if(this.cursors.down.justPressed())
   { this.player.act(this.directions.down); }
+
+  // test
+  if(this.spaceKey.justPressed())
+  {
+    console.log("hi");
+  }
 } // Game.update()
 
 UsagiNamespace.Game.prototype.render = function()
@@ -114,6 +122,12 @@ UsagiNamespace.Game.prototype.generateRoom = function(playerCoords)
     this.room[gridCoords.y][gridCoords.x] = t;
     this.trees[t].visible = true;
   }
+
+  // place item
+  gridCoords = this.findOpen();
+  this.item.setPos(gridCoords.x, gridCoords.y);
+  this.room[gridCoords.y][gridCoords.x] = 'i';
+  this.item.visible = true;
 
 } // Game.generateRoom
 
@@ -169,7 +183,15 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
   else if(destChar === 's')
   {
     this.move(destPos);
-    this.gamestate.generateRoom(this.pos);
+    if(this.gamestate.floorNum < 10)
+    {
+      this.gamestate.generateRoom(this.pos);
+    }
+    else
+    {
+      this.game.state.start('GameOverState', true, false, this.hp);
+    }
+    
   } // walk down stairs
   else if(destChar[0] === 'e')
   {
@@ -179,6 +201,15 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
   {
     this.gamestate.trees[destChar].die();
   } // chop tree
+  else if(destChar === 'i')
+  {
+    this.gamestate.item.die();
+    this.hp += 5;
+    if(this.hp > 15)
+    {
+      this.hp = 15;
+    }
+  } // eat item
 
   for(var e in this.gamestate.enemies)
   {
@@ -197,6 +228,15 @@ UsagiNamespace.Game.Player.prototype.move = function(destPos)
   var destPosWorld = {x : (destPos.x - 1)*100, y : (destPos.y - 1)*100};
   this.game.add.tween(this).to(destPosWorld, 100, Phaser.Easing.Exponential.Out, true);
 } // Player.move()
+
+UsagiNamespace.Game.Player.prototype.rcvDmg = function(amt)
+{
+  this.hp -= amt;
+  if(this.hp <= 0)
+  {
+    this.game.state.start('GameOverState', true, false, this.hp);
+  }
+} // Player.recDmg()
 
 
 
@@ -255,6 +295,10 @@ UsagiNamespace.Game.Enemy.prototype.act = function()
   if(destChar === 'o')
   {
     this.move(destPos);
+  }
+  else if(destChar === 'p')
+  {
+    this.gamestate.player.rcvDmg(this.game.rnd.integerInRange(1, 4));
   }
   else
   {
@@ -327,6 +371,37 @@ UsagiNamespace.Game.Tree.prototype.die = function()
   this.visible = false;
 } // Tree.die()
 
+// ----- Item object -----
+UsagiNamespace.Game.Item = function(game, gamestate, id)
+{
+  Phaser.Sprite.call(this, game, 0, 0, 'objects');
+  this.frame = 3;
+  this.gamestate = gamestate;
+  this.id = id;
+  this.pos = new Phaser.Point(0, 0);
+
+  this.game.add.existing(this);
+} // Item constructor
+
+UsagiNamespace.Game.Item.prototype = Object.create(Phaser.Sprite.prototype);
+UsagiNamespace.Game.Item.prototype.constructor = UsagiNamespace.Game.Item;
+
+UsagiNamespace.Game.Item.prototype.setPos = function(nx, ny)
+{
+  this.pos.x = nx;
+  this.pos.y = ny;
+  this.x = (this.pos.x - 1) * 100;
+  this.y = (this.pos.y - 1) * 100;
+} // Item.setPos()
+
+UsagiNamespace.Game.Item.prototype.die = function()
+{
+  this.gamestate.room[this.pos.y][this.pos.x] = 'o';
+  this.visible = false;
+} // Item.die()
+
+
+// ----- Utility -----
 function print2D(room)
 {
   console.log('----------------');
