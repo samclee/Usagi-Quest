@@ -28,6 +28,7 @@ UsagiNamespace.Game.prototype.create = function()
     e1: new UsagiNamespace.Game.Enemy(this.game, this, 1, 'e1'),
     e2: new UsagiNamespace.Game.Enemy(this.game, this, 2, 'e2')
   };
+
   // generate room
   this.generateRoom(new Phaser.Point(3, 3));
   // create UI
@@ -95,19 +96,14 @@ UsagiNamespace.Game.prototype.generateRoom = function(playerCoords)
   gridCoords = this.findOpen();
   this.enemies.e1.setPos(gridCoords.x, gridCoords.y);
   this.room[gridCoords.y][gridCoords.x] = 'e1';
-  this.enemies.e1.setDir();
-  this.enemies.e1.hp = 8;
-  this.visible = true;
+  this.enemies.e1.reset();
   gridCoords = this.findOpen();
   this.enemies.e2.setPos(gridCoords.x, gridCoords.y);
   this.room[gridCoords.y][gridCoords.x] = 'e2';
-  this.enemies.e2.setDir();
-  this.enemies.e2.hp = 8;
-  this.visible = true;
+  this.enemies.e2.reset();
 
-  this.player.room = this.room;
-  this.enemies.e1.room = this.room;
-  this.enemies.e2.room = this.room;
+  // place trees
+
 } // Game.generateRoom
 
 UsagiNamespace.Game.prototype.findOpen = function()
@@ -132,7 +128,6 @@ UsagiNamespace.Game.Player = function(game, hp, gamestate)
   Phaser.Sprite.call(this, game, 200, 200, 'objects');
   this.hp = hp;
   this.gamestate = gamestate;
-  this.room = [];
   this.pos = new Phaser.Point(3, 3)
   this.frame = 0;
   this.lastDir = new Phaser.Point(0, 1);
@@ -150,7 +145,7 @@ UsagiNamespace.Game.Player.prototype.constructor = UsagiNamespace.Game.Player;
 UsagiNamespace.Game.Player.prototype.act = function(dir)
 {
   var destPos = Phaser.Point.add(this.pos, dir);
-  var destChar = this.room[destPos.y][destPos.x];
+  var destChar = this.gamestate.room[destPos.y][destPos.x];
   this.lastDir = dir;
   // move the hurt box
   this.hurtBox.x = this.lastDir.x*100;
@@ -164,18 +159,24 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
   {
     this.move(destPos);
     this.gamestate.generateRoom(this.pos);
-  }
+  } // walk down stairs
+  else if(destChar === 'e1' || destChar === 'e2')
+  {
+    this.gamestate.enemies[destChar].rcvDmg(this.game.rnd.integerInRange(2, 5));
+  } // attack enemy
 
-  this.gamestate.enemies.e1.act();
-  this.gamestate.enemies.e2.act();
+  for(var e in this.gamestate.enemies)
+  {
+    this.gamestate.enemies[e].act();
+  }
 } // Player.act()
 
 UsagiNamespace.Game.Player.prototype.move = function(destPos)
 {
   // edit the room grid
-  this.room[this.pos.y][this.pos.x] = 'o';
+  this.gamestate.room[this.pos.y][this.pos.x] = 'o';
   this.pos = destPos;
-  this.room[this.pos.y][this.pos.x] = 'p';
+  this.gamestate.room[this.pos.y][this.pos.x] = 'p';
 
   // move the sprite position
   var destPosWorld = {x : (destPos.x - 1)*100, y : (destPos.y - 1)*100};
@@ -190,12 +191,17 @@ UsagiNamespace.Game.Enemy = function(game, gamestate, frame, id)
   Phaser.Sprite.call(this, game, 0, 0, 'objects');
   this.hp = 8;
   this.gamestate = gamestate;
-  this.room = [];
   this.frame = frame;
   this.id = id;
   this.pos = new Phaser.Point(0, 0);
   this.nextDir = new Phaser.Point(0, 0);
   this.setDir();
+
+  // hp bar
+  this.hp_bg = this.addChild(game.make.sprite(10, -20,'hp_bar'));
+  this.hp_bg.frame = 0;
+  this.cur_hp = this.addChild(game.make.sprite(10, -20,'hp_bar'));
+  this.cur_hp.frame = 1;
 
   this.game.add.existing(this);
 } // enemy constructor
@@ -229,7 +235,7 @@ UsagiNamespace.Game.Enemy.prototype.setDir = function()
 UsagiNamespace.Game.Enemy.prototype.act = function()
 {
   var destPos = Phaser.Point.add(this.pos, this.nextDir);
-  var destChar = this.room[destPos.y][destPos.x];
+  var destChar = this.gamestate.room[destPos.y][destPos.x];
 
   if(destChar === 'o')
   {
@@ -244,15 +250,37 @@ UsagiNamespace.Game.Enemy.prototype.act = function()
 
 UsagiNamespace.Game.Enemy.prototype.move = function(destPos)
 {
+  if(this.hp <= 0) { return; }
+
   // edit the room grid
-  this.room[this.pos.y][this.pos.x] = 'o';
+  this.gamestate.room[this.pos.y][this.pos.x] = 'o';
   this.pos = destPos;
-  this.room[this.pos.y][this.pos.x] = this.id;
+  this.gamestate.room[this.pos.y][this.pos.x] = this.id;
 
   // move the sprite position
   var destPosWorld = {x : (destPos.x - 1)*100, y : (destPos.y - 1)*100};
   this.game.add.tween(this).to(destPosWorld, 100, Phaser.Easing.Exponential.Out, true);
-} // Player.move()
+} // Enemy.move()
+
+UsagiNamespace.Game.Enemy.prototype.rcvDmg = function(amt)
+{
+  this.hp -= amt;
+  if(this.hp <= 0)
+  {
+    this.hp = 0;
+    this.gamestate.room[this.pos.y][this.pos.x] = 'o';
+    this.visible = false;
+  } // dead
+  this.cur_hp.scale.x = (this.hp / 8);
+} // Enemy.rcvDmg
+
+UsagiNamespace.Game.Enemy.prototype.reset = function()
+{
+  this.setDir();
+  this.hp = 8;
+  this.cur_hp.scale.x = 1;
+  this.visible = true;
+}
 
 function print2D(room)
 {
