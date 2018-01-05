@@ -13,16 +13,17 @@ UsagiNamespace.Game.prototype.create = function()
   this.cursors = this.game.input.keyboard.createCursorKeys();
   // create and init Game variables
   this.floorNum = 0;
-
   this.room = [];
   this.directions = { left: new Phaser.Point(-1, 0),
                       right: new Phaser.Point(1, 0),
                       up: new Phaser.Point(0, -1),
                       down: new Phaser.Point(0, 1) };
-  // generate room
-  this.room = this.generateRoom(new Phaser.Point(3, 3));
   // create Objects
-  this.player = new UsagiNamespace.Game.Player(this.game, 3, 3, 25, this.room);
+  this.player = new UsagiNamespace.Game.Player(this.game, 25, this);
+  this.stairs = this.game.add.sprite(0, 0, 'objects');
+  this.stairs.frame = 5;
+  // generate room
+  this.generateRoom(new Phaser.Point(3, 3));
   // create UI
   this.game.add.sprite(500, 0, 'bar');
   this.UI = {};
@@ -30,9 +31,7 @@ UsagiNamespace.Game.prototype.create = function()
   this.UI.hp = this.game.add.text(530, 100, 'HP: XX', {fontSize: '32px'});
 
   // test
-  this.foo = "adsfadsfasdf";
-  console.log('\'this\' of create()', this);
-  console.log(this.foo);
+
 } // Game.create()
 
 UsagiNamespace.Game.prototype.update = function()
@@ -52,39 +51,68 @@ UsagiNamespace.Game.prototype.update = function()
   { this.player.act(this.directions.down); }
 } // Game.update()
 
+UsagiNamespace.Game.prototype.render = function()
+{
+  this.game.debug.text(this.player.pos.x + ', ' + this.player.pos.y, 550, 100);
+  for(var i = 0; i < 7; i++)
+  {
+    for(var j = 0; j < 7; j++)
+    {
+      this.game.debug.text(this.room[j][i], (i-1)*100 + 50, (j-1)*100 + 50);
+    }
+  }
+} // Game.render()
+
 
 
 // ----- Room creation functions -----
-UsagiNamespace.Game.prototype.generateRoom = function(playerPos)
+UsagiNamespace.Game.prototype.generateRoom = function(playerCoords)
 {
-  var template = [ ['x','x','x','x','x','x','x'],
-                    ['x','o','o','o','o','o','x'],
-                    ['x','o','o','o','o','o','x'],
-                    ['x','o','o','o','o','o','x'],
-                    ['x','o','o','o','o','o','x'],
-                    ['x','o','o','o','o','o','x'],
-                    ['x','x','x','x','x','x','x'] ];
+  this.floorNum++;
+  this.room = [ ['x','x','x','x','x','x','x'],
+                ['x','o','o','o','o','o','x'],
+                ['x','o','o','o','o','o','x'],
+                ['x','o','o','o','o','o','x'],
+                ['x','o','o','o','o','o','x'],
+                ['x','o','o','o','o','o','x'],
+                ['x','x','x','x','x','x','x'] ];
   // place player
-  template[playerPos.y][playerPos.x] = 'p';
+  this.room[playerCoords.y][playerCoords.x] = 'p';
 
+  // place stairs
+  var gridCoords = this.findOpen();
+  this.room[gridCoords.y][gridCoords.x] = 's';
+  this.stairs.x = (gridCoords.x - 1)*100;
+  this.stairs.y = (gridCoords.y - 1)*100;
 
-  console.log('\'this\' of generateRoom()',this);
-  console.log(this.foo);
-  
-  return template;
+  this.player.room = this.room;
 } // Game.generateRoom
+
+UsagiNamespace.Game.prototype.findOpen = function()
+{
+  var rx = this.game.rnd.integerInRange(2,6);
+  var ry = this.game.rnd.integerInRange(2,6);
+
+  do{
+    rx = this.game.rnd.integerInRange(2,6);
+    ry = this.game.rnd.integerInRange(2,6);
+  }
+  while(this.room[ry][rx] !== 'o');
+
+  return {x: rx, y: ry};
+} // Game.findOpen
 
 
 
 // ----- Player Object -----
-UsagiNamespace.Game.Player = function(game, x, y, hp, room)
+UsagiNamespace.Game.Player = function(game, hp, gamestate)
 {
-  Phaser.Sprite.call(this, game, (x-1)*100, (y-1)*100, 'objects');
+  Phaser.Sprite.call(this, game, 200, 200, 'objects');
   this.hp = hp;
-  this.room = room;
-  this.pos = new Phaser.Point(x, y)
+  this.gamestate = gamestate;
+  this.room = [];
+  this.pos = new Phaser.Point(3, 3)
   this.frame = 0;
-  this.room[y][x] = 'p';
   this.lastDir = new Phaser.Point(0, 1);
 
   this.hurtBox = this.addChild(game.make.sprite(this.lastDir.x*100,
@@ -100,19 +128,22 @@ UsagiNamespace.Game.Player.prototype.constructor = UsagiNamespace.Game.Player;
 UsagiNamespace.Game.Player.prototype.act = function(dir)
 {
   var destPos = Phaser.Point.add(this.pos, dir);
-  var destChar = this.room[destPos.x][destPos.y];
+  var destChar = this.room[destPos.y][destPos.x];
   this.lastDir = dir;
+  // move the hurt box
+  this.hurtBox.x = this.lastDir.x*100;
+  this.hurtBox.y = this.lastDir.y*100;
 
-  if(destChar === 'x')
-  {
-    // move the hurt box
-    this.hurtBox.x = this.lastDir.x*100;
-    this.hurtBox.y = this.lastDir.y*100;
-  } // turn to edge
-  else if(destChar === 'o')
+  if(destChar === 'o')
   {
     this.move(destPos);
   } // move to open space
+  else if(destChar === 's')
+  {
+    console.log('hit stairs');
+    this.move(destPos);
+    this.gamestate.generateRoom(this.pos);
+  }
 } // Player.act()
 
 UsagiNamespace.Game.Player.prototype.move = function(destPos)
@@ -125,10 +156,6 @@ UsagiNamespace.Game.Player.prototype.move = function(destPos)
   // move the sprite position
   var destPosWorld = {x : (destPos.x - 1)*100, y : (destPos.y - 1)*100};
   this.game.add.tween(this).to(destPosWorld, 100, Phaser.Easing.Exponential.Out, true);
-
-  // move the hurt box
-  this.hurtBox.x = this.lastDir.x*100;
-  this.hurtBox.y = this.lastDir.y*100;
 } // Player.move()
 
 function print2D(room)
