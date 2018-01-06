@@ -14,6 +14,7 @@ UsagiNamespace.Preload.prototype.preload = function()
 
   this.game.load.spritesheet('hp_bar',  './assets/hp_bar.png',  80,   20);
   this.game.load.spritesheet('objects', './assets/objects.png', 100, 100);
+  this.game.load.spritesheet('end_usagi', './assets/end_animation.png', 128, 128);
 
   this.game.scale.pageAlignHorizontally = true;
 } // Preload.preload()

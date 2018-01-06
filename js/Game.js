@@ -72,16 +72,6 @@ UsagiNamespace.Game.prototype.update = function()
   }
 } // Game.update()
 
-UsagiNamespace.Game.prototype.render = function()
-{
-  for(var i = 1; i < 6; i++)
-  {
-    for(var j = 1; j < 6; j++)
-    {
-      this.game.debug.text(this.room[j][i], (i-1)*100 + 50, (j-1)*100 + 50);
-    }
-  }
-} // Game.render()
 
 
 
@@ -183,7 +173,7 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
   else if(destChar === 's')
   {
     this.move(destPos);
-    if(this.gamestate.floorNum < 10)
+    if(this.gamestate.floorNum < 5)
     {
       this.gamestate.generateRoom(this.pos);
     }
