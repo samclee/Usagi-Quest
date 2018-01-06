@@ -173,7 +173,7 @@ UsagiNamespace.Game.Player.prototype.act = function(dir)
   else if(destChar === 's')
   {
     this.move(destPos);
-    if(this.gamestate.floorNum < 5)
+    if(this.gamestate.floorNum < 6)
     {
       this.gamestate.generateRoom(this.pos);
     }
